@@ -1,4 +1,4 @@
-!pip install pyomo
+#!pip install pyomo
 import pyomo.environ as pe
 import os
 import random
