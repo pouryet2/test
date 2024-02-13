@@ -1,4 +1,4 @@
-#!pip install pyomo
+!pip install pyomo
 import pyomo.environ as pe
 import os
 import random
@@ -50,59 +50,60 @@ for c in caregivers:
 #preference_coefficient = {(p,c):random.random() for c in caregivers for p in patients}
 working_hours =  {c:100 for c in caregivers}
 max_visits_per_nurse= {'C1': 7, 'C2': 12, 'C3': 8, 'C4': 9}
-has_skill = {('C1', 2): 1,
-  ('C1', 3): 1,
-  ('C1', 4): 1,
-  ('C1', 5): 1,
-  ('C1', 8): 1,
-  ('C1', 9): 1,
-  ('C1', 10): 1,
-  ('C1', 12): 1,
-  ('C1', 13): 1,
-  ('C1', 14): 1,
-  ('C2', 1): 1,
-  ('C2', 3): 1,
-  ('C2', 4): 1,
-  ('C2', 5): 1,
-  ('C2', 6): 1,
-  ('C2', 7): 1,
-  ('C2', 8): 1,
-  ('C2', 9): 1,
-  ('C2', 11): 1,
-  ('C2', 12): 1,
-  ('C2', 13): 1,
-  ('C2', 14): 1,
-  ('C3', 1): 1,
-  ('C3', 2): 1,
-  ('C3', 3): 1,
-  ('C3', 5): 1,
-  ('C3', 6): 1,
-  ('C3', 8): 1,
-  ('C3', 9): 1,
-  ('C3', 11): 1,
-  ('C3', 12): 1,
-  ('C3', 13): 1,
-  ('C3', 14): 1,
-  ('C4', 1): 1,
-  ('C4', 2): 1,
-  ('C4', 3): 1,
-  ('C4', 4): 1,
-  ('C4', 5): 1,
-  ('C4', 6): 1,
-  ('C4', 7): 1,
-  ('C4', 8): 1,
-  ('C4', 10): 1,
-  ('C4', 11): 1,
-  ('C4', 12): 1,
-  ('C4', 14): 1,
-  ('C1', 0): 1,
-  (0, 'C1'): 1,
-  ('C2', 0): 1,
-  (0, 'C2'): 1,
-  ('C3', 0): 1,
-  (0, 'C3'): 1,
-  ('C4', 0): 1,
-  (0, 'C4'): 1}
+has_skill = {(c, p1, p2): random.choice([0, 1]) for c in caregivers for p1 in patients for p2 in patients if p1 != p2}
+#  {('C1', 2): 1,
+#   ('C1', 3): 1,
+#   ('C1', 4): 1,
+#   ('C1', 5): 1,
+#   ('C1', 8): 1,
+#   ('C1', 9): 1,
+#   ('C1', 10): 1,
+#   ('C1', 12): 1,
+#   ('C1', 13): 1,
+#   ('C1', 14): 1,
+#   ('C2', 1): 1,
+#   ('C2', 3): 1,
+#   ('C2', 4): 1,
+#   ('C2', 5): 1,
+#   ('C2', 6): 1,
+#   ('C2', 7): 1,
+#   ('C2', 8): 1,
+#   ('C2', 9): 1,
+#   ('C2', 11): 1,
+#   ('C2', 12): 1,
+#   ('C2', 13): 1,
+#   ('C2', 14): 1,
+#   ('C3', 1): 1,
+#   ('C3', 2): 1,
+#   ('C3', 3): 1,
+#   ('C3', 5): 1,
+#   ('C3', 6): 1,
+#   ('C3', 8): 1,
+#   ('C3', 9): 1,
+#   ('C3', 11): 1,
+#   ('C3', 12): 1,
+#   ('C3', 13): 1,
+#   ('C3', 14): 1,
+#   ('C4', 1): 1,
+#   ('C4', 2): 1,
+#   ('C4', 3): 1,
+#   ('C4', 4): 1,
+#   ('C4', 5): 1,
+#   ('C4', 6): 1,
+#   ('C4', 7): 1,
+#   ('C4', 8): 1,
+#   ('C4', 10): 1,
+#   ('C4', 11): 1,
+#   ('C4', 12): 1,
+#   ('C4', 14): 1,
+#   ('C1', 0): 1,
+#   (0, 'C1'): 1,
+#   ('C2', 0): 1,
+#   (0, 'C2'): 1,
+#   ('C3', 0): 1,
+#   (0, 'C3'): 1,
+#   ('C4', 0): 1,
+#   (0, 'C4'): 1}
 
 time_cure_patients = {1: 3.0,
  2: 0.5,
@@ -200,6 +201,7 @@ def u_bound(model,c,p):
     return (0,max_customer[c])
 
 model.U = pe.Var(caregivers, patients,bounds=u_bound,within=pe.NonNegativeIntegers)
+
 def dynamic_objective(df):
     df['X'] = [random.random() for i in range(Np+1)]
     df['y'] = [random.random() for i in range(Np+1)]
@@ -256,9 +258,11 @@ if hasattr(model, 'start_time_rule_index_1'):
 if hasattr(model, 'start_time_rule_index_2'):
     model.del_component(model.start_time_rule_index_2)
 
-def rule_start_time(model, caregivers, patients,p1):
-    return model.start_time[patients] >= time_window_earliest[patients] + sum(model.X[caregivers, p1, patients] for p1 in points if p1 != patients) * (time_cure_patients[p1] + travel_time[p1, patients])
-model.start_time_rule = pe.Constraint(caregivers, patients,_,rule=rule_start_time)
+def rule_start_time(model, c, p):
+    return model.start_time[p] >= time_window_earliest[p] + sum(
+        model.X[c, p1, p] * (time_cure_patients.get(p1, 0) + travel_time.get((p1, p), 0))
+        for p1 in points if p1 != p)
+model.start_time_rule = pe.Constraint(caregivers, patients, rule=rule_start_time)
 
 if hasattr(model, 'end_time_rule_index'):
     model.del_component(model.end_time_rule_index)
@@ -268,9 +272,10 @@ if hasattr(model, 'end_time_rule_index_1'):
     model.del_component(model.end_time_rule_index_1)
 if hasattr(model, 'end_time_rule_index_2'):
     model.del_component(model.end_time_rule_index_2)
-def rule_end_time(model,caregivers, patients,p):
-    return model.start_time[p] <= time_window_latest[p] - sum(model.X[c,p,p2] for p2 in points if p2!=p)*(time_cure_patients[p]+travel_time[p,p2])
-model.end_time_rule = pe.Constraint(caregivers, patients,_,rule=rule_end_time)
+
+def rule_end_time(model, c, p):
+    return model.start_time[p] <= time_window_latest[p] - sum(model.X[c, p, p2] * (time_cure_patients[p] + travel_time[p, p2]) for p2 in points if p2 != p)
+model.end_time_rule = pe.Constraint(caregivers, patients, rule=rule_end_time)
 
 if hasattr(model, 'working_hours_rule_index'):
     model.del_component(model.working_hours_rule_index)
@@ -393,13 +398,18 @@ def random_initialization(model):
                     init_values[(c, p1, p2)] = 0
         # Initialize a list to store the visited patients by the current caregiver
         visited_patients = []
-        # Loop over the patients
+
+        default_start_time = 0
+        for p in visited_patients:
+          if model.start_time[p].value is None:
+              model.start_time[p].value = default_start_time
+          # Loop over the patients
         for p in patients:
             # If the caregiver visits the patient, append the patient to the list
             if init_values.get((c, p), 0) == 1:
                 visited_patients.append(p)
         # Sort the visited patients by their start time
-        visited_patients.sort(key=lambda p: model.start_time[p].value)  # Assuming start_time has been initialized
+        visited_patients.sort(key=lambda p: model.start_time[p].value if model.start_time[p].value is not None else default_start_time)  # Assuming start_time has been initialized
         # Loop over the visited patients
         for i, p in enumerate(visited_patients):
             # Set the U variable to the position of the patient in the route using tuple (c, p) as the key
@@ -409,7 +419,7 @@ def random_initialization(model):
 
 # Define a function to create a neighborhood of a given solution
 # Define a function to create a neighborhood of a given solution
-def create_neighborhood(model, solution, k,c,p1,p,p2,c1,c2):
+def create_neighborhood(model, solution,k):
     # Create a list to store the neighboring solutions
     neighbors = []
     # Loop k times
@@ -420,20 +430,28 @@ def create_neighborhood(model, solution, k,c,p1,p,p2,c1,c2):
         c1, c2 = random.sample(caregivers, 2)
         # Randomly select two patients
         p1, p2 = random.sample(patients, 2)
-        # Swap the visit variables of the selected caregivers and patients
-        neighbor[model.visits[c1,p1]], neighbor[model.visits[c2,p2]] = neighbor[model.visits[c2,p2]], neighbor[model.visits[c1,p1]]
-        # Update the X and U variables accordingly
-        # Loop over the caregivers
-        for c in [c1, c2]:
-            # Loop over the points
+        #neighbor[model.visits[c1,p1]], neighbor[model.visits[c2,p2]] = neighbor[model.visits[c2,p2]], neighbor[model.visits[c1,p1]]
+        
+        temp = neighbor.get((c1, p1), 0)
+        neighbor[(c1, p1)] = neighbor.get((c2, p2), 0)
+        neighbor[(c2, p2)] = temp
+        
+        # for c in [c1, c2]:
+        #     # Loop over the points
+        #     for p1 in points:
+        #         for p2 in points:
+        #             if p1 != p2 and neighbor[model.visits[c,p1]] == 1 and neighbor[model.visits[c,p2]] == 1:
+        #                 neighbor[model.X[c,p1,p2]] = 1
+        #             else:
+        #                 
+        #                 neighbor[model.X[c,p1,p2]] = 0
+        for c in caregivers:
             for p1 in points:
                 for p2 in points:
-                    # Set the X variable to 1 if the caregiver travels from p1 to p2 and visits both points
-                    if p1 != p2 and neighbor[model.visits[c,p1]] == 1 and neighbor[model.visits[c,p2]] == 1:
-                        neighbor[model.X[c,p1,p2]] = 1
+                    if p1 != p2 and neighbor.get((c, p1), 0) == 1 and neighbor.get((c, p2), 0) == 1:
+                        neighbor[(c, p1, p2)] = 1
                     else:
-                        # Set the X variable to 0 otherwise
-                        neighbor[model.X[c,p1,p2]] = 0
+                        neighbor[(c, p1, p2)] = 0
             # Initialize a list to store the visited patients by the current caregiver
             visited_patients = []
             # Loop over the patients
@@ -454,9 +472,21 @@ def create_neighborhood(model, solution, k,c,p1,p,p2,c1,c2):
 
 # Define a function to evaluate a given solution
 def evaluate_solution(model, solution):
-    # Set the value of the variables according to the solution
-    for var, val in solution.items():
-        var.set_value(val)
+    # for key, val in solution.items():
+    #   if isinstance(key, tuple):
+    #       pyomo_var = model.X[key]  
+    #       pyomo_var.set_value(val)
+    #   else:
+    #       print(f"Key is not a tuple, received: {type(key)}")
+    
+    for key, val in solution.items():
+      if isinstance(key, tuple) and len(key) == 3:
+          # Assuming key is structured correctly for model.X
+          model.X[key].set_value(val)
+      else:
+          # Handle error or incorrect key structure
+          print(f"Incorrect key structure for model.X: {key}")
+
     # Calculate the value of the objective function
     obj_value = pe.value(model.combined_objective)
     # Return the objective value
@@ -584,4 +614,3 @@ if solution is not None:
     plt.show()
 else:
     print("No Solution Found.")
-
