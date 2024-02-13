@@ -256,58 +256,114 @@ if hasattr(model, 'start_time_rule_index_1'):
 if hasattr(model, 'start_time_rule_index_2'):
     model.del_component(model.start_time_rule_index_2)
 
-def rule_start_time(model, caregiver, patient):
-    return model.start_time[p] >= time_window_earliest[p] + sum(model.X[c,p1,p] for p1 in points if p1!=p)*(time_cure_patients[p1]+travel_time[p1,p])
-model.start_time_rule = pe.Constraint(caregivers, patients,rule=rule_start_time)
+def rule_start_time(model, caregivers, patients,p1):
+    return model.start_time[patients] >= time_window_earliest[patients] + sum(model.X[caregivers, p1, patients] for p1 in points if p1 != patients) * (time_cure_patients[p1] + travel_time[p1, patients])
+model.start_time_rule = pe.Constraint(caregivers, patients,_,rule=rule_start_time)
 
-
-def rule_end_time(model,c,p,p2):
+if hasattr(model, 'end_time_rule_index'):
+    model.del_component(model.end_time_rule_index)
+if hasattr(model, 'end_time_rule_index_0'):
+    model.del_component(model.end_time_rule_index_0)
+if hasattr(model, 'end_time_rule_index_1'):
+    model.del_component(model.end_time_rule_index_1)
+if hasattr(model, 'end_time_rule_index_2'):
+    model.del_component(model.end_time_rule_index_2)
+def rule_end_time(model,caregivers, patients,p):
     return model.start_time[p] <= time_window_latest[p] - sum(model.X[c,p,p2] for p2 in points if p2!=p)*(time_cure_patients[p]+travel_time[p,p2])
-model.end_time_rule = pe.Constraint(caregivers, patients, rule=rule_end_time)
+model.end_time_rule = pe.Constraint(caregivers, patients,_,rule=rule_end_time)
 
-
-def rule_working_hours(model,c,p1,p2):
-    return sum(model.X[c,p1,p2]*(time_cure_patients[p1]+travel_time[p1,p2]) for p1 in points for p2 in points if p1!=p2) <= working_hours[c]
+if hasattr(model, 'working_hours_rule_index'):
+    model.del_component(model.working_hours_rule_index)
+if hasattr(model, 'working_hours_rule_index_0'):
+    model.del_component(model.working_hours_rule_index_0)
+if hasattr(model, 'working_hours_rule_index_1'):
+    model.del_component(model.working_hours_rule_index_1)
+if hasattr(model, 'working_hours_rule_index_2'):
+    model.del_component(model.working_hours_rule_index_2)
+def rule_working_hours(model,caregivers):
+    return sum(model.X[caregivers, p1, p2] * (time_cure_patients.get(p1, 0) + travel_time.get((p1, p2), 0))
+               for p1 in points for p2 in points if p1 != p2) <= working_hours[caregivers]
 model.working_hours_rule = pe.Constraint(caregivers, rule=rule_working_hours)
 
 
+if hasattr(model, 'X1_index'):
+    model.del_component(model.X1_index)
+if hasattr(model, 'X1_index_0'):
+    model.del_component(model.X1_index_0)
+if hasattr(model, 'X1_index_1'):
+    model.del_component(model.X1_index_1)
+if hasattr(model, 'X1_index_2'):
+    model.del_component(model.X1_index_2)
 def rule_X1(model,c,p):
     return model.X[c,0,p] == model.visits[c,p]
 
 model.X1 = pe.Constraint(caregivers, patients, rule=rule_X1)
 
-# Define the X2 constraint
+if hasattr(model, 'X2_index'):
+    model.del_component(model.X2_index)
+if hasattr(model, 'X2_index_0'):
+    model.del_component(model.X2_index_0)
+if hasattr(model, 'X2_index_1'):
+    model.del_component(model.X2_index_1)
+if hasattr(model, 'X2_index_2'):
+    model.del_component(model.X2_index_2)
 def rule_X2(model,c,p):
     return model.X[c,p,0] == model.visits[c,p]
 
 model.X2 = pe.Constraint(caregivers, patients, rule=rule_X2)
 
-# Define the X3 constraint
-def rule_X3(model,c,p,p1):
+if hasattr(model, 'X3_index'):
+    model.del_component(model.X3_index)
+if hasattr(model, 'X3_index_0'):
+    model.del_component(model.X3_index_0)
+if hasattr(model, 'X3_index_1'):
+    model.del_component(model.X3_index_1)
+if hasattr(model, 'X3_index_2'):
+    model.del_component(model.X3_index_2)
+def rule_X3(model,c,p):
     return sum(model.X[c,p1,p] for p1 in points if p1!=p) == model.visits[c,p]
 model.X3 = pe.Constraint(caregivers, patients, rule=rule_X3)
 
-
-# Define the X4 constraint
-def rule_X4(model,c,p,p1,p2):
+if hasattr(model, 'X4_index'):
+    model.del_component(model.X4_index)
+if hasattr(model, 'X4_index_0'):
+    model.del_component(model.X4_index_0)
+if hasattr(model, 'X4_index_1'):
+    model.del_component(model.X4_index_1)
+if hasattr(model, 'X4_index_2'):
+    model.del_component(model.X4_index_2)
+def rule_X4(model,c,p):
     return sum(model.X[c,p,p2] for p2 in points if p2!=p) == model.visits[c,p]
 model.X4 = pe.Constraint(caregivers, patients, rule=rule_X4)
 
 
-# Define the U1 constraint
+if hasattr(model, 'U1_index'):
+    model.del_component(model.U1_index)
+if hasattr(model, 'U1_index_0'):
+    model.del_component(model.U1_index_0)
+if hasattr(model, 'U1_index_1'):
+    model.del_component(model.U1_index_1)
+if hasattr(model, 'U1_index_2'):
+    model.del_component(model.U1_index_2)
 def rule_U1(model,c,p):
     return model.U[c,p] >= 1
 model.U1 = pe.Constraint(caregivers, patients, rule=rule_U1)
 
-
-# Define the U2 constraint
-def rule_U2(model,c,p1,p2,M,p):
+if hasattr(model, 'U2_index'):
+    model.del_component(model.U2_index)
+if hasattr(model, 'U2_index_0'):
+    model.del_component(model.U2_index_0)
+if hasattr(model, 'U2_index_1'):
+    model.del_component(model.U2_index_1)
+if hasattr(model, 'U2_index_2'):
+    model.del_component(model.U2_index_2)
+def rule_U2(model,c,p1,p2):
     return model.U[c,p2] >= model.U[c,p1] + 1 - M*(1-model.X[c,p1,p2])
 
 model.U2 = pe.Constraint(caregivers, patients, patients, rule=rule_U2)
 
 # Define a function to generate a random initial solution
-def random_initialization(model,c,p,p1,p2):
+def random_initialization(model):
     # Create a dictionary to store the initial values of the variables
     init_values = {}
     # Loop over the caregivers
@@ -317,36 +373,37 @@ def random_initialization(model,c,p,p1,p2):
         # Loop over the patients
         for p in patients:
             # Randomly assign the patient to the caregiver with some probability
-            if random.random() < 0.5 and has_skill[c,p] == 1 and num_visits < max_visits_per_nurse[c]:
-                # Set the visit variable to 1
-                init_values[model.visits[c,p]] = 1
+            if (c, p) in has_skill and random.random() < 0.5 and has_skill[c,p] == 1 and num_visits < max_visits_per_nurse[c]:
+                # Set the visit variable to 1 using tuple (c, p) as the key
+                init_values[(c, p)] = 1
                 # Increment the number of visits for the current caregiver
                 num_visits += 1
             else:
-                # Set the visit variable to 0
-                init_values[model.visits[c,p]] = 0
+                # Set the visit variable to 0 using tuple (c, p) as the key
+                init_values[(c, p)] = 0
         # Loop over the points
         for p1 in points:
             for p2 in points:
-                # Set the X variable to 1 if the caregiver travels from p1 to p2 and visits both points
-                if p1 != p2 and init_values[model.visits[c,p1]] == 1 and init_values[model.visits[c,p2]] == 1:
-                    init_values[model.X[c,p1,p2]] = 1
+                # Check if the caregiver travels from p1 to p2 and visits both points
+                if p1 != p2 and init_values.get((c, p1), 0) == 1 and init_values.get((c, p2), 0) == 1:
+                    # Set the X variable to 1 using tuple (c, p1, p2) as the key
+                    init_values[(c, p1, p2)] = 1
                 else:
-                    # Set the X variable to 0 otherwise
-                    init_values[model.X[c,p1,p2]] = 0
+                    # Set the X variable to 0 using tuple (c, p1, p2) as the key
+                    init_values[(c, p1, p2)] = 0
         # Initialize a list to store the visited patients by the current caregiver
         visited_patients = []
         # Loop over the patients
         for p in patients:
             # If the caregiver visits the patient, append the patient to the list
-            if init_values[model.visits[c,p]] == 1:
+            if init_values.get((c, p), 0) == 1:
                 visited_patients.append(p)
         # Sort the visited patients by their start time
-        visited_patients.sort(key=lambda p: init_values[model.start_time[p]])
+        visited_patients.sort(key=lambda p: model.start_time[p].value)  # Assuming start_time has been initialized
         # Loop over the visited patients
         for i, p in enumerate(visited_patients):
-            # Set the U variable to the position of the patient in the route
-            init_values[model.U[c,p]] = i + 1
+            # Set the U variable to the position of the patient in the route using tuple (c, p) as the key
+            init_values[(c, p)] = i + 1
     # Return the dictionary of initial values
     return init_values
 
@@ -484,7 +541,6 @@ def variable_neighborhood_search(model, max_iter=100, k_max=10):
     # Return the current solution
     return current_solution
 
-
 solution = variable_neighborhood_search(model)
 #solution = variable_neighborhood_search(instance)
 if solution is not None:
@@ -505,7 +561,8 @@ if solution is not None:
         plt.text(df.loc[n,'X']-0.01,df.loc[n,'y'],s=str(n), fontsize=14, c='w', zorder=2, fontweight='bold')
     for c in caregivers:
         visited_patients = [p for p in patients if solution[model.visits[c,p]] == 1]
-        visited_patients.sort(key=lambda p: solution[model.U[c,p]])
+        # Sort the visited patients by their start time, using a large default value for patients without a start time
+        visited_patients.sort(key=lambda p: model.start_time[p].value if model.start_time[p].value is not None else float('inf'))
         for i, p in enumerate(visited_patients):
             if i == 0:
                 x0,y0 = df.loc[0,'X'] ,df.loc[0,'y']
