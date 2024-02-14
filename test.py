@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 os.environ['NEOS_EMAIL'] = 'XXXXXX@gmail.com'
 global p,p1,p2,working_hours,M,c,k,Np,Nc,df,c1,c2
 
-
 model = pe.ConcreteModel()
 
 Np = 14
@@ -203,24 +202,24 @@ def u_bound(model,c,p):
 
 model.U = pe.Var(caregivers, patients,bounds=u_bound,within=pe.NonNegativeIntegers)
 
-# def dynamic_objective(df):
-#     df['X'] = [random.random() for i in range(Np+1)]
-#     df['y'] = [random.random() for i in range(Np+1)]
-#     df.loc[0,'X']=0.5
-#     df.loc[0,'y']=0.5
-#     travel_time ={ (p1,p2):round(2*distance(df,p1,p2),2) for p1 in points for p2 in points if p1!=p2}
-#     obj = cost_travel * sum(travel_time[p1,p2]*model.X[c,p1,p2] for c in caregivers for p1 in points for p2 in points if p1!=p2) + \
-#           cost_caregiver* sum(skill_level[c]*model.visits[c,p] for c in caregivers for p in patients) - \
-#           sum(preference_coefficient[p,c]*model.visits[c,p] for c in caregivers for p in patients)
-#     return obj
-# model.dynamic_objective = pe.Param(initialize=dynamic_objective(df), mutable=True)
+def dynamic_objective(df):
+    df['X'] = [random.random() for i in range(Np+1)]
+    df['y'] = [random.random() for i in range(Np+1)]
+    df.loc[0,'X']=0.5
+    df.loc[0,'y']=0.5
+    travel_time ={ (p1,p2):round(2*distance(df,p1,p2),2) for p1 in points for p2 in points if p1!=p2}
+    obj = cost_travel * sum(travel_time[p1,p2]*model.X[c,p1,p2] for c in caregivers for p1 in points for p2 in points if p1!=p2) + \
+          cost_caregiver* sum(skill_level[c]*model.visits[c,p] for c in caregivers for p in patients) - \
+          sum(preference_coefficient[p,c]*model.visits[c,p] for c in caregivers for p in patients)
+    return obj
+model.dynamic_objective = pe.Param(initialize=dynamic_objective(df), mutable=True)
 
 def obj_rule(model):
-#     return model.dynamic_objective
-# model.combined_objective = pe.Objective(rule=obj_rule, sense=pe.minimize)
-  return cost_travel * sum(travel_time[p1,p2]*model.X[c,p1,p2] for c in caregivers for p1 in points for p2 in points if p1!=p2) + \
-            cost_caregiver * sum(skill_level[c]*model.visits[c,p] for c in caregivers for p in patients) - \
-            sum(preference_coefficient[p,c]*model.visits[c,p] for c in caregivers for p in patients)
+    return model.dynamic_objective
+model.combined_objective = pe.Objective(rule=obj_rule, sense=pe.minimize)
+  # return cost_travel * sum(travel_time[p1,p2]*model.X[c,p1,p2] for c in caregivers for p1 in points for p2 in points if p1!=p2) + \
+  #           cost_caregiver * sum(skill_level[c]*model.visits[c,p] for c in caregivers for p in patients) - \
+  #           sum(preference_coefficient[p,c]*model.visits[c,p] for c in caregivers for p in patients)
 model.combined_objective = pe.Objective(rule=obj_rule, sense=pe.minimize)
 
 if hasattr(model, 'visits_cons_index'):
@@ -429,12 +428,12 @@ def create_neighborhood(model, solution, k):
         neighbor = solution.copy()
         c1, c2 = random.sample(caregivers, 2)
         p1, p2 = random.sample(patients, 2)
-        
+
         # Swap visits between two caregivers for two patients
         temp = neighbor.get((c1, p1), 0)
         neighbor[(c1, p1)] = neighbor.get((c2, p2), 0)
         neighbor[(c2, p2)] = temp
-        
+
         # Ensure the X variables are correctly updated based on the new visits
         for c in caregivers:
             for p1 in points:
@@ -455,37 +454,64 @@ def create_neighborhood(model, solution, k):
         neighbors.append(neighbor)
     return neighbors
 
-# Define a function to evaluate a given solution
-def evaluate_solution(model, solution):
-    # for key, val in solution.items():
-    #     if isinstance(key, tuple) and len(key) == 3:  
-    #         model.X[key].set_value(val)  
-    #     elif isinstance(key, tuple) and len(key) == 2:  
-    #         if key in model.visits:
-    #             model.visits[key].set_value(val)
-    #         elif key in model.U:
-    #             model.U[key].set_value(val)
-    #     else:
-    #         print(f"Unexpected key structure: {key}")
-    # obj_value = pe.value(model.combined_objective)
-    # return obj_value
-    for key, val in solution.items():
-        if isinstance(key, tuple):
-            if len(key) == 2:  # For model.visits
-                model.visits[key].set_value(val)
-            elif len(key) == 3:  # For model.X
-                model.X[key].set_value(val)
-            # Add handling for model.U if necessary
-        else:
-            print(f"Unexpected key structure: {key}")
 
-    # Recalculate the objective function
-    model.combined_objective.expr = obj_rule(model)
-    obj_value = pe.value(model.combined_objective)
-    return obj_value
+# def evaluate_solution(model, solution):
+
+#     for key, val in solution.items():
+#         if isinstance(key, tuple):
+#             if len(key) == 2:  # For model.visits
+#                 model.visits[key].set_value(val)
+#             elif len(key) == 3:  # For model.X
+#                 model.X[key].set_value(val)
+#             # Add handling for model.U if necessary
+#         else:
+#             print(f"Unexpected key structure: {key}")
+
+
+#     model.combined_objective.expr = obj_rule(model)
+#     obj_value = pe.value(model.combined_objective)
     
 
-# Define a function to improve a given solution using a local search method
+#     travel_cost = sum(travel_time[p1,p2]*model.X[c,p1,p2].value for c in caregivers for p1 in points for p2 in points if p1!=p2)
+#     caregiver_cost = sum(skill_level[c]*model.visits[c,p].value for c in caregivers for p in patients)
+#     preference_cost = sum(preference_coefficient[p,c]*model.visits[c,p].value for c in caregivers for p in patients)
+#     print(f"Travel Cost: {travel_cost}, Caregiver Cost: {caregiver_cost}, Preference Cost: {preference_cost}")
+    
+#     return obj_value
+
+def feasible_initialization(model):
+    for c in caregivers:
+        for p in patients:  
+            if (c, p) in has_skill and has_skill[c, p] == 1:
+                model.visits[c, p].set_value(1)
+            else:
+                model.visits[c, p].set_value(0)
+
+    for c in caregivers:
+        for p1 in points:
+            for p2 in points:
+                if p1 != p2:
+                    if p1 == 0 or p2 == 0 or (model.visits[c, p1].value == 1 and model.visits[c, p2].value == 1):
+                        model.X[c, p1, p2].set_value(1)
+                    else:
+                        model.X[c, p1, p2].set_value(0)
+                        
+    for c in caregivers:
+        visit_order = 1
+        for p in sorted(patients):
+            if model.visits[c, p].value == 1:
+                model.U[c, p].set_value(visit_order)
+                visit_order += 1
+
+
+def evaluate_solution(model,solution):
+    model.combined_objective.expr = obj_rule(model)
+    return pe.value(model.combined_objective)
+
+
+
+
+
 def improve_solution(model, solution):
     # Create a copy of the current solution
     improved_solution = solution.copy()
@@ -566,7 +592,11 @@ def variable_neighborhood_search(model, max_iter=100, k_max=10):
 
 solution = variable_neighborhood_search(model)
 #solution = variable_neighborhood_search(instance)
+feasible_initialization(model)
 
+# Example of how to use the improved evaluation function
+current_obj_value = evaluate_solution(model,solution)
+print(f"Current Objective Value: {current_obj_value}")
 if solution is not None:
     print("Solution Found!")
     print('OF = ', evaluate_solution(model, solution))
@@ -608,4 +638,3 @@ if solution is not None:
     plt.show()
 else:
     print("No Solution Found.")
-
