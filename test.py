@@ -202,20 +202,24 @@ def u_bound(model,c,p):
 
 model.U = pe.Var(caregivers, patients,bounds=u_bound,within=pe.NonNegativeIntegers)
 
-def dynamic_objective(df):
-    df['X'] = [random.random() for i in range(Np+1)]
-    df['y'] = [random.random() for i in range(Np+1)]
-    df.loc[0,'X']=0.5
-    df.loc[0,'y']=0.5
-    travel_time ={ (p1,p2):round(2*distance(df,p1,p2),2) for p1 in points for p2 in points if p1!=p2}
-    obj = cost_travel * sum(travel_time[p1,p2]*model.X[c,p1,p2] for c in caregivers for p1 in points for p2 in points if p1!=p2) + \
-          cost_caregiver* sum(skill_level[c]*model.visits[c,p] for c in caregivers for p in patients) - \
-          sum(preference_coefficient[p,c]*model.visits[c,p] for c in caregivers for p in patients)
-    return obj
-model.dynamic_objective = pe.Param(initialize=dynamic_objective(df), mutable=True)
+# def dynamic_objective(df):
+#     df['X'] = [random.random() for i in range(Np+1)]
+#     df['y'] = [random.random() for i in range(Np+1)]
+#     df.loc[0,'X']=0.5
+#     df.loc[0,'y']=0.5
+#     travel_time ={ (p1,p2):round(2*distance(df,p1,p2),2) for p1 in points for p2 in points if p1!=p2}
+#     obj = cost_travel * sum(travel_time[p1,p2]*model.X[c,p1,p2] for c in caregivers for p1 in points for p2 in points if p1!=p2) + \
+#           cost_caregiver* sum(skill_level[c]*model.visits[c,p] for c in caregivers for p in patients) - \
+#           sum(preference_coefficient[p,c]*model.visits[c,p] for c in caregivers for p in patients)
+#     return obj
+# model.dynamic_objective = pe.Param(initialize=dynamic_objective(df), mutable=True)
 
 def obj_rule(model):
-    return model.dynamic_objective
+#     return model.dynamic_objective
+# model.combined_objective = pe.Objective(rule=obj_rule, sense=pe.minimize)
+  return cost_travel * sum(travel_time[p1,p2]*model.X[c,p1,p2] for c in caregivers for p1 in points for p2 in points if p1!=p2) + \
+            cost_caregiver * sum(skill_level[c]*model.visits[c,p] for c in caregivers for p in patients) - \
+            sum(preference_coefficient[p,c]*model.visits[c,p] for c in caregivers for p in patients)
 model.combined_objective = pe.Objective(rule=obj_rule, sense=pe.minimize)
 
 if hasattr(model, 'visits_cons_index'):
@@ -418,33 +422,19 @@ def random_initialization(model):
     return init_values
 
 # Define a function to create a neighborhood of a given solution
-# Define a function to create a neighborhood of a given solution
-def create_neighborhood(model, solution,k):
-    # Create a list to store the neighboring solutions
+def create_neighborhood(model, solution, k):
     neighbors = []
-    # Loop k times
     for i in range(k):
-        # Create a copy of the current solution
         neighbor = solution.copy()
-        # Randomly select two caregivers
         c1, c2 = random.sample(caregivers, 2)
-        # Randomly select two patients
         p1, p2 = random.sample(patients, 2)
-        #neighbor[model.visits[c1,p1]], neighbor[model.visits[c2,p2]] = neighbor[model.visits[c2,p2]], neighbor[model.visits[c1,p1]]
         
+        # Swap visits between two caregivers for two patients
         temp = neighbor.get((c1, p1), 0)
         neighbor[(c1, p1)] = neighbor.get((c2, p2), 0)
         neighbor[(c2, p2)] = temp
         
-        # for c in [c1, c2]:
-        #     # Loop over the points
-        #     for p1 in points:
-        #         for p2 in points:
-        #             if p1 != p2 and neighbor[model.visits[c,p1]] == 1 and neighbor[model.visits[c,p2]] == 1:
-        #                 neighbor[model.X[c,p1,p2]] = 1
-        #             else:
-        #                 
-        #                 neighbor[model.X[c,p1,p2]] = 0
+        # Ensure the X variables are correctly updated based on the new visits
         for c in caregivers:
             for p1 in points:
                 for p2 in points:
@@ -452,45 +442,47 @@ def create_neighborhood(model, solution,k):
                         neighbor[(c, p1, p2)] = 1
                     else:
                         neighbor[(c, p1, p2)] = 0
-            # Initialize a list to store the visited patients by the current caregiver
-            visited_patients = []
-            # Loop over the patients
-            for p in patients:
-                # If the caregiver visits the patient, append the patient to the list
-                if neighbor[model.visits[c,p]] == 1:
-                    visited_patients.append(p)
-            # Sort the visited patients by their position in the route
-            visited_patients.sort(key=lambda p: neighbor[model.U[c,p]])
-            # Loop over the visited patients
+
+        # Correctly update the U variables based on the sorted order of visited patients
+        for c in caregivers:
+            visited_patients = [p for p in patients if neighbor.get((c, p), 0) == 1]
+            # Sort the visited patients based on some criteria, e.g., patient ID for simplicity
+            visited_patients.sort()
             for i, p in enumerate(visited_patients):
-                # Set the U variable to the position of the patient in the route
-                neighbor[model.U[c,p]] = i + 1
-        # Append the neighbor to the list of neighbors
+                neighbor[(c, p)] = i + 1  # Update U variable based on the order
+
         neighbors.append(neighbor)
-    # Return the list of neighbors
     return neighbors
 
 # Define a function to evaluate a given solution
 def evaluate_solution(model, solution):
     # for key, val in solution.items():
-    #   if isinstance(key, tuple):
-    #       pyomo_var = model.X[key]  
-    #       pyomo_var.set_value(val)
-    #   else:
-    #       print(f"Key is not a tuple, received: {type(key)}")
-    
+    #     if isinstance(key, tuple) and len(key) == 3:  
+    #         model.X[key].set_value(val)  
+    #     elif isinstance(key, tuple) and len(key) == 2:  
+    #         if key in model.visits:
+    #             model.visits[key].set_value(val)
+    #         elif key in model.U:
+    #             model.U[key].set_value(val)
+    #     else:
+    #         print(f"Unexpected key structure: {key}")
+    # obj_value = pe.value(model.combined_objective)
+    # return obj_value
     for key, val in solution.items():
-      if isinstance(key, tuple) and len(key) == 3:
-          # Assuming key is structured correctly for model.X
-          model.X[key].set_value(val)
-      else:
-          # Handle error or incorrect key structure
-          print(f"Incorrect key structure for model.X: {key}")
+        if isinstance(key, tuple):
+            if len(key) == 2:  # For model.visits
+                model.visits[key].set_value(val)
+            elif len(key) == 3:  # For model.X
+                model.X[key].set_value(val)
+            # Add handling for model.U if necessary
+        else:
+            print(f"Unexpected key structure: {key}")
 
-    # Calculate the value of the objective function
+    # Recalculate the objective function
+    model.combined_objective.expr = obj_rule(model)
     obj_value = pe.value(model.combined_objective)
-    # Return the objective value
     return obj_value
+    
 
 # Define a function to improve a given solution using a local search method
 def improve_solution(model, solution):
@@ -590,7 +582,7 @@ if solution is not None:
     for n in points:
         plt.text(df.loc[n,'X']-0.01,df.loc[n,'y'],s=str(n), fontsize=14, c='w', zorder=2, fontweight='bold')
     for c in caregivers:
-        visited_patients = [p for p in patients if solution[model.visits[c,p]] == 1]
+        visited_patients = [p for p in patients if solution.get((c, p), 0) == 1]
         # Sort the visited patients by their start time, using a large default value for patients without a start time
         visited_patients.sort(key=lambda p: model.start_time[p].value if model.start_time[p].value is not None else float('inf'))
         for i, p in enumerate(visited_patients):
@@ -614,3 +606,11 @@ if solution is not None:
     plt.show()
 else:
     print("No Solution Found.")
+term1= sum(preference_coefficient[p,c]*model.visits[c,p].value for c in caregivers for p in patients)
+print(term1)
+t=model.start_time.display()
+print(t)
+r=model.X.display()
+print(r)
+z=model.visits.display()
+print(z)
