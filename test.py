@@ -176,16 +176,9 @@ def init_visits(model, c, p):
     else:
         model.visits[c,p] = 0
     return model.visits[c,p]
+   #return (c,p) in has_skill and has_skill[c,p] == 1
 
-model.visits = pe.Var(caregivers, patients, within=pe.Binary, initialize=init_visits)
-
-#model.visits = pe.Var(caregivers, patients, within=pe.Binary)
-def rule_window(model,p):
-    return (time_window_earliest[p], time_window_latest[p])
-
-
-model.start_time = pe.Var(patients, bounds=rule_window, within=pe.PositiveReals)
-
+model.visits = pe.Var(caregivers, patients, within=pe.Binary, initialize=init_visits)#
 
 def init_X(model, c, p1, p2):
     if p1 != p2 and (c,p1) in has_skill and (c,p2) in has_skill and has_skill[c,p1] == 1 and has_skill[c,p2] == 1:
@@ -193,14 +186,24 @@ def init_X(model, c, p1, p2):
     else:
         model.X[c,p1,p2] = 0
     return model.X[c,p1,p2]
+  #return p1 != p2 and (c,p1,p2) in has_skill and has_skill[c,p1,p2] == 1
 
-model.X = pe.Var(caregivers, points, points, within=pe.Binary, initialize=init_X)
+model.X = pe.Var(caregivers, points, points, within=pe.Binary, initialize=init_X)#
 
-#model.X = pe.Var(caregivers, points, points, within=pe.Binary)
+#model.visits = pe.Var(caregivers, patients, within=pe.Binary)
+def rule_window(model,p):
+    return (time_window_earliest[p], time_window_latest[p])
+
+
+model.start_time = pe.Var(patients, bounds=lambda model, p: (time_window_earliest[p], time_window_latest[p]), within=pe.PositiveReals)
+
+
+
 def u_bound(model,c,p):
     return (0,max_customer[c])
 
-model.U = pe.Var(caregivers, patients,bounds=u_bound,within=pe.NonNegativeIntegers)
+model.U = pe.Var(caregivers, patients,bounds=u_bound,within=pe.NonNegativeIntegers)#
+
 
 def dynamic_objective(df):
     df['X'] = [random.random() for i in range(Np+1)]
@@ -220,7 +223,7 @@ model.combined_objective = pe.Objective(rule=obj_rule, sense=pe.minimize)
   # return cost_travel * sum(travel_time[p1,p2]*model.X[c,p1,p2] for c in caregivers for p1 in points for p2 in points if p1!=p2) + \
   #           cost_caregiver * sum(skill_level[c]*model.visits[c,p] for c in caregivers for p in patients) - \
   #           sum(preference_coefficient[p,c]*model.visits[c,p] for c in caregivers for p in patients)
-model.combined_objective = pe.Objective(rule=obj_rule, sense=pe.minimize)
+#model.combined_objective = pe.Objective(rule=obj_rule, sense=pe.minimize)
 
 if hasattr(model, 'visits_cons_index'):
     del model.visits_cons_index
@@ -244,10 +247,10 @@ if hasattr(model, 'skill_index_0'):
 if hasattr(model, 'skill_index_1'):
     model.del_component(model.skill_index_1)
 
-def rule_skill(model,caregivers, patients):
+def rule_skill(model,c, p):
     #return model.visits[c,p] <= has_skill[c,p]
-    if (caregivers, patients) in has_skill:
-        return model.visits[caregivers, patients] <= has_skill[caregivers, patients]
+    if (c, p) in has_skill:
+        return model.visits[c, p] <= has_skill[c, p]
     else:
         return pe.Constraint.Skip
 
@@ -470,38 +473,20 @@ def create_neighborhood(model, solution, k):
 
 #     model.combined_objective.expr = obj_rule(model)
 #     obj_value = pe.value(model.combined_objective)
-    
+
 
 #     travel_cost = sum(travel_time[p1,p2]*model.X[c,p1,p2].value for c in caregivers for p1 in points for p2 in points if p1!=p2)
 #     caregiver_cost = sum(skill_level[c]*model.visits[c,p].value for c in caregivers for p in patients)
 #     preference_cost = sum(preference_coefficient[p,c]*model.visits[c,p].value for c in caregivers for p in patients)
 #     print(f"Travel Cost: {travel_cost}, Caregiver Cost: {caregiver_cost}, Preference Cost: {preference_cost}")
-    
+
 #     return obj_value
 
-def feasible_initialization(model):
-    for c in caregivers:
-        for p in patients:  
-            if (c, p) in has_skill and has_skill[c, p] == 1:
-                model.visits[c, p].set_value(1)
-            else:
-                model.visits[c, p].set_value(0)
 
-    for c in caregivers:
-        for p1 in points:
-            for p2 in points:
-                if p1 != p2:
-                    if p1 == 0 or p2 == 0 or (model.visits[c, p1].value == 1 and model.visits[c, p2].value == 1):
-                        model.X[c, p1, p2].set_value(1)
-                    else:
-                        model.X[c, p1, p2].set_value(0)
-                        
-    for c in caregivers:
-        visit_order = 1
-        for p in sorted(patients):
-            if model.visits[c, p].value == 1:
-                model.U[c, p].set_value(visit_order)
-                visit_order += 1
+
+
+
+
 
 
 def evaluate_solution(model,solution):
@@ -590,13 +575,41 @@ def variable_neighborhood_search(model, max_iter=100, k_max=10):
     # Return the current solution
     return current_solution
 
-solution = variable_neighborhood_search(model)
-#solution = variable_neighborhood_search(instance)
+def feasible_initialization(model):
+    for c in caregivers:
+        for p in patients:  
+            if (c, p) in has_skill and has_skill[c, p] == 1:
+                model.visits[c, p].set_value(1)
+                model.X[c, 0, p].set_value(1)
+                model.X[c, p, 0].set_value(1)
+            else:
+                model.visits[c, p].set_value(0)
+
+    for c in caregivers:
+        for p1 in points:
+            for p2 in points:
+                if p1 != p2:
+                    if p1 != 0 and p2 != 0:
+                        if model.visits[c, p1].value == 1 and model.visits[c, p2].value == 1:
+                            model.X[c, p1, p2].set_value(1)
+                        else:
+                            model.X[c, p1, p2].set_value(0)
+                        
+    for c in caregivers:
+        visit_order = 1
+        for p in sorted(patients, key=lambda p: model.start_time[p].value if model.start_time[p].value is not None else float('inf')):
+            if model.visits[c, p].value == 1:
+                model.U[c, p].set_value(visit_order)
+                visit_order += 1
+
 feasible_initialization(model)
 
-# Example of how to use the improved evaluation function
-current_obj_value = evaluate_solution(model,solution)
-print(f"Current Objective Value: {current_obj_value}")
+solution = variable_neighborhood_search(model)
+#solution = variable_neighborhood_search(instance)
+
+
+# current_obj_value = evaluate_solution(model,solution)
+# print(f"Current Objective Value: {current_obj_value}")
 if solution is not None:
     print("Solution Found!")
     print('OF = ', evaluate_solution(model, solution))
@@ -639,7 +652,7 @@ if solution is not None:
 else:
     print("No Solution Found.")
 
-import pandas as pd
+
 
 
 print("\nTreatment Start Times:")
@@ -665,4 +678,6 @@ print("\nNurse Allocation to Patients:")
 allocations = [(c, p) for c in caregivers for p in patients if solution.get((c, p), 0) == 1]
 allocations_df = pd.DataFrame(allocations, columns=['Nurse', 'Patient'])
 print(allocations_df)
+
+
 print()
