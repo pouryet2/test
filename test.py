@@ -1,4 +1,4 @@
-#!pip install pyomo
+!pip install pyomo
 import pyomo.environ as pe
 import os
 import random
@@ -8,6 +8,7 @@ import math
 import matplotlib.pyplot as plt
 os.environ['NEOS_EMAIL'] = 'XXXXXX@gmail.com'
 global p,p1,p2,working_hours,M,c,k,Np,Nc,df,c1,c2
+
 
 model = pe.ConcreteModel()
 
@@ -50,7 +51,8 @@ for c in caregivers:
 #preference_coefficient = {(p,c):random.random() for c in caregivers for p in patients}
 working_hours =  {c:100 for c in caregivers}
 max_visits_per_nurse= {'C1': 7, 'C2': 12, 'C3': 8, 'C4': 9}
-has_skill = {(c, p1, p2): random.choice([0, 1]) for c in caregivers for p1 in patients for p2 in patients if p1 != p2}
+#has_skill = {(c, p1, p2): random.choice([0, 1]) for c in caregivers for p1 in patients for p2 in patients if p1 != p2}
+has_skill = {(c, p): random.choice([0, 1]) for c in caregivers for p in patients}
 #  {('C1', 2): 1,
 #   ('C1', 3): 1,
 #   ('C1', 4): 1,
@@ -527,29 +529,23 @@ def improve_solution(model, solution):
     # Return the improved solution
     return improved_solution
 
-# Define a function to select the best solution among a list of solutions
-def select_best_solution(model, solutions):
-    # Initialize the best solution to None
-    best_solution = None
-    # Initialize the best objective value to infinity
-    best_obj = float('inf')
-    # Loop over the solutions
-    for solution in solutions:
-        # Evaluate the solution
-        obj_value = evaluate_solution(model, solution)
-        # If the solution is better than the best solution
-        if obj_value < best_obj:
-            # Set the best solution to the solution
-            best_solution = solution
-            # Set the best objective value to the objective value
-            best_obj = obj_value
-    # Return the best solution
-    return best_solution
+# def select_best_solution(model, solutions):
+#     best_solution = None
+#     best_obj = float('inf')
+#     for solution in solutions:
+#         obj_value = evaluate_solution(model, solution)
+#         if obj_value < best_obj:
+#             best_solution = solution
+#             best_obj = obj_value
+#     return best_solution
 
 # Define a function to implement the variable neighborhood search algorithm
 def variable_neighborhood_search(model, max_iter=100, k_max=10):
     # Generate a random initial solution
     current_solution = random_initialization(model)
+    # Evaluate the initial solution
+    best_obj = evaluate_solution(model, current_solution)
+    best_solution = current_solution
     # Set the current iteration to 0
     current_iter = 0
     # Set the current neighborhood size to 1
@@ -558,22 +554,20 @@ def variable_neighborhood_search(model, max_iter=100, k_max=10):
     while current_iter < max_iter and current_k <= k_max:
         # Improve the current solution using a local search method
         improved_solution = improve_solution(model, current_solution)
-        # Evaluate the current solution and the improved solution
-        current_obj = evaluate_solution(model, current_solution)
+        # Evaluate the improved solution
         improved_obj = evaluate_solution(model, improved_solution)
-        # If the improved solution is better than the current solution
-        if improved_obj < current_obj:
-            # Set the current solution to the improved solution
-            current_solution = improved_solution
-            # Reset the neighborhood size to 1
+        # If the improved solution is better, update the current solution
+        if improved_obj < best_obj:
+            best_solution = improved_solution
+            best_obj = improved_obj
+            # Reset the neighborhood size to explore more granular improvements
             current_k = 1
         else:
-            # Increase the neighborhood size by 1
+            # Increase the neighborhood size to explore broader improvements
             current_k += 1
-        # Increase the iteration by 1
         current_iter += 1
-    # Return the current solution
-    return current_solution
+    # Return the best solution found
+    return best_solution
 
 def feasible_initialization(model):
     for c in caregivers:
@@ -582,6 +576,7 @@ def feasible_initialization(model):
                 model.visits[c, p].set_value(1)
                 model.X[c, 0, p].set_value(1)
                 model.X[c, p, 0].set_value(1)
+                model.start_time[p].set_value(time_window_earliest[p])
             else:
                 model.visits[c, p].set_value(0)
 
