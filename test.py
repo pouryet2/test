@@ -639,3 +639,30 @@ if solution is not None:
 else:
     print("No Solution Found.")
 
+import pandas as pd
+
+
+print("\nTreatment Start Times:")
+start_times = {p: model.start_time[p].value for p in patients}
+start_times_df = pd.DataFrame(list(start_times.items()), columns=['Patient', 'Start Time'])
+print(start_times_df)
+
+# Nurse Routing
+print("\nNurse Routing:")
+routes = []
+for c in caregivers:
+    route = [0]  # Starting from the depot
+    visited_patients = [p for p in patients if solution.get((c, p), 0) == 1]
+    visited_patients.sort(key=lambda p: model.start_time[p].value if model.start_time[p].value is not None else float('inf'))
+    route.extend(visited_patients)
+    route.append(0)  # Returning to the depot
+    routes.append((c, ' -> '.join(map(str, route))))
+routes_df = pd.DataFrame(routes, columns=['Nurse', 'Route'])
+print(routes_df)
+
+# Nurse Allocation to Patients
+print("\nNurse Allocation to Patients:")
+allocations = [(c, p) for c in caregivers for p in patients if solution.get((c, p), 0) == 1]
+allocations_df = pd.DataFrame(allocations, columns=['Nurse', 'Patient'])
+print(allocations_df)
+print()
