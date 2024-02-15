@@ -207,6 +207,8 @@ def u_bound(model,c,p):
 model.U = pe.Var(caregivers, patients,bounds=u_bound,within=pe.NonNegativeIntegers)#
 
 
+
+
 def dynamic_objective(df):
     df['X'] = [random.random() for i in range(Np+1)]
     df['y'] = [random.random() for i in range(Np+1)]
@@ -220,13 +222,15 @@ def dynamic_objective(df):
 model.dynamic_objective = pe.Param(initialize=dynamic_objective(df), mutable=True)
 
 def obj_rule(model):
-    return model.dynamic_objective
-model.combined_objective = pe.Objective(rule=obj_rule, sense=pe.minimize)
-  # return cost_travel * sum(travel_time[p1,p2]*model.X[c,p1,p2] for c in caregivers for p1 in points for p2 in points if p1!=p2) + \
-  #           cost_caregiver * sum(skill_level[c]*model.visits[c,p] for c in caregivers for p in patients) - \
-  #           sum(preference_coefficient[p,c]*model.visits[c,p] for c in caregivers for p in patients)
-#model.combined_objective = pe.Objective(rule=obj_rule, sense=pe.minimize)
+    #return model.dynamic_objective
+    travel_cost = sum(travel_time[p1, p2] * model.X[c, p1, p2] for c in caregivers for p1 in points for p2 in points if p1 != p2)
+    caregiver_cost = sum(skill_level[c] * model.visits[c, p] for c in caregivers for p in patients)
+    patient_satisfaction = sum(preference_coefficient[p, c] * model.visits[c, p] for c in caregivers for p in patients)
+    
+    return travel_cost + caregiver_cost - patient_satisfaction
 
+model.combined_objective = pe.Objective(rule=obj_rule, sense=pe.minimize)
+  
 if hasattr(model, 'visits_cons_index'):
     del model.visits_cons_index
 def rule_visit(model,p):
@@ -570,32 +574,55 @@ def variable_neighborhood_search(model, max_iter=100, k_max=10):
     return best_solution
 
 def feasible_initialization(model):
-    for c in caregivers:
-        for p in patients:  
-            if (c, p) in has_skill and has_skill[c, p] == 1:
+    # for c in caregivers:
+    #     for p in patients:  
+    #         if (c, p) in has_skill and has_skill[c, p] == 1:
+    #             model.visits[c, p].set_value(1)
+    #             model.X[c, 0, p].set_value(1)
+    #             model.X[c, p, 0].set_value(1)
+    #             model.start_time[p].set_value(time_window_earliest[p])
+    #         else:
+    #             model.visits[c, p].set_value(0)
+
+    # for c in caregivers:
+    #     for p1 in points:
+    #         for p2 in points:
+    #             if p1 != p2:
+    #                 if p1 != 0 and p2 != 0:
+    #                     if model.visits[c, p1].value == 1 and model.visits[c, p2].value == 1:
+    #                         model.X[c, p1, p2].set_value(1)
+    #                     else:
+    #                         model.X[c, p1, p2].set_value(0)
+                        
+    # for c in caregivers:
+    #     visit_order = 1
+    #     for p in sorted(patients, key=lambda p: model.start_time[p].value if model.start_time[p].value is not None else float('inf')):
+    #         if model.visits[c, p].value == 1:
+    #             model.U[c, p].set_value(visit_order)
+    #             visit_order += 1
+    for p in patients:
+        assigned = False
+        for c in caregivers:
+            if has_skill[c, p] == 1 and not assigned:
                 model.visits[c, p].set_value(1)
-                model.X[c, 0, p].set_value(1)
-                model.X[c, p, 0].set_value(1)
-                model.start_time[p].set_value(time_window_earliest[p])
+                assigned = True
             else:
                 model.visits[c, p].set_value(0)
-
+        if not assigned:
+            raise ValueError(f"Patient {p} cannot be assigned to any nurse based on skills.")
+    
+    # Ensure routing loop for each nurse
     for c in caregivers:
-        for p1 in points:
-            for p2 in points:
-                if p1 != p2:
-                    if p1 != 0 and p2 != 0:
-                        if model.visits[c, p1].value == 1 and model.visits[c, p2].value == 1:
-                            model.X[c, p1, p2].set_value(1)
-                        else:
-                            model.X[c, p1, p2].set_value(0)
-                        
-    for c in caregivers:
-        visit_order = 1
-        for p in sorted(patients, key=lambda p: model.start_time[p].value if model.start_time[p].value is not None else float('inf')):
-            if model.visits[c, p].value == 1:
-                model.U[c, p].set_value(visit_order)
-                visit_order += 1
+        visited_patients = [p for p in patients if pe.value(model.visits[c, p]) == 1]
+        if visited_patients:
+            # Start from the treatment center, visit all assigned patients, return to the treatment center
+            model.X[c, 0, visited_patients[0]].set_value(1)  # Start from treatment center
+            for i in range(len(visited_patients)-1):
+                model.X[c, visited_patients[i], visited_patients[i+1]].set_value(1)  # Visit next patient
+            model.X[c, visited_patients[-1], 0].set_value(1)  # Return to treatment center
+        else:
+            # If no patients are assigned, stay at the treatment center
+            model.X[c, 0, 0].set_value(1)
 
 feasible_initialization(model)
 
@@ -674,5 +701,7 @@ allocations = [(c, p) for c in caregivers for p in patients if solution.get((c, 
 allocations_df = pd.DataFrame(allocations, columns=['Nurse', 'Patient'])
 print(allocations_df)
 
+term1= sum(preference_coefficient[p,c]*model.visits[c,p].value for c in caregivers for p in patients)
+print(term1)
 
 print()
